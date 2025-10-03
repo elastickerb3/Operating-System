@@ -1,5 +1,5 @@
 extern unsigned char get_key(void);
-extern void shutdown(void);
+extern void reboot(void);
 typedef unsigned int uint32_t;
 
 #include "Befehle.c"
@@ -180,6 +180,8 @@ void kernel_main(void) {
         char* Command = input(Combine(Pfad, " root# "));
         if(CommandFind(Command, "clear") || CommandFind(Command, "cls")){
             clear();
+        }else if(CommandFind(Command, "reboot")){
+            reboot();
         }else if(CommandFind(Command, "shutdown")){
             shutdown();
         }else if(strcmp(Command, "hallo")){
