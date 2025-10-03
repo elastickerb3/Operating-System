@@ -2,4 +2,4 @@
 <h2>ein Betribsystem mit:</h2>
 Einer shutdown function.<br>
 Einer reboot function.<br>
-<a href="kernel.c">Einem scroll Bidlkschrim</a><br>
+<a href="kernel.c">Einem scroll Bidschrim</a><br>
