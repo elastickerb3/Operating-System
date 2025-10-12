@@ -1,8 +1,9 @@
 extern "C" {
     char* input(const char* Text,int color);
-    void println(const char* Text);//Zum Debug
+    void println(const char* Text);
     int str_cmp(const char* a, const char* b);
 }
+
 extern "C" int python(){
     while (1){
         char Code[999][128];
@@ -22,6 +23,6 @@ extern "C" int python(){
                 Code[i][y]=Input[y];
             }
         } 
-        println(Code[0]);
+        
     }
 }

@@ -3,7 +3,9 @@ typedef unsigned int  uint32_t;
 typedef unsigned short uint16_t;
 
 extern char* key_board_input(void);
-extern int python(); 
+extern int python(void);
+extern int Login(void);
+extern void SetNewPasswort(int UserId, char* NewPasswort);
 
 #define ROWS 24
 #define COLS 80
@@ -271,9 +273,11 @@ char (*parameter(const char* Text, const char* Standert_Text))[255] {
 }
 
 void kernel_main(void) {
+    clear();
+    Login();
+
     println("Willkommen!");
     println("help fuer hilfe.");
-
     while (1) {
         char* cmd = input(combine(Pfad," root# "),Color);
         int LehrzeichenTest=1;
@@ -326,8 +330,11 @@ void kernel_main(void) {
             println("");
         }else if(CommandInhalt(cmd,"python")){
             python();
-        }else{
+        }else  {
             println(combine(cmd,": Befehl nicht gefunden."));
         }
+    }
+    for(;;) {
+        __asm__ volatile("hlt");
     }
 }
