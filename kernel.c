@@ -1,18 +1,18 @@
-extern unsigned char get_key(void);
-extern void reboot(void);
-
+typedef unsigned char uint8_t;
 typedef unsigned int  uint32_t;
 typedef unsigned short uint16_t;
 
-#define ROWS 13
+extern void reboot(void);
+extern char* key_board_input(void);
+
+#define ROWS 24
 #define COLS 80
 
 volatile unsigned short* video = (volatile unsigned short*)0xB8000;
 int row = 0;
 int printZeichen = 0;
 char* Pfad = "/";
-
-const char* Zeilen[ROWS] = { "", "", "", "", "", "", "", "", "", "", "", "", "" };
+int Color = 0x0F;
 #define PM1a_CNT 0x604
 #define SLP_TYP  0x2000
 #define SLP_EN   0x2000
@@ -24,12 +24,6 @@ static inline void outw(uint16_t port, uint16_t val) {
 void shutdown() {
     outw(PM1a_CNT, SLP_TYP | SLP_EN);
     for(;;) { __asm__ volatile("hlt"); }
-}
-int len(const char* s) {
-    int len = 0;
-    if (!s) return 0;
-    while (s[len]) len++;
-    return len;
 }
 
 int str_cmp(const char* a, const char* b) {
@@ -64,59 +58,54 @@ char* combine(const char* a, const char* b) {
     buf[pos] = 0;
     return buf;
 }
+
 void clear() {
-    for (int y=0; y<25; y++) {
+    for (int y=0; y<ROWS; y++) {
         for (int x=0; x<COLS; x++) {
-            video[y*COLS+x] = (unsigned short)' ' | (0x07 << 8);
+            video[y*COLS+x] = (unsigned short)' ' | (Color << 8);
         }
     }
-    for (int i=0; i<ROWS; i++) Zeilen[i] = "";
     row = 0;
     printZeichen = 0;
 }
 
-void render_Text() {
-    for (int y=0; y<ROWS; y++) {
-        int len = len(Zeilen[y]);
-        for (int x=0; x<COLS; x++) {
-            char c = (x < len) ? Zeilen[y][x] : ' ';
-            video[y*COLS+x] = (unsigned short)c | (0x07 << 8);
+void println(const char* text) {
+    int i;
+    for(i=0;text[i];i++){
+        video[row*COLS+i] = (unsigned short)text[i]|(Color<<8);
+    }
+    i=i+printZeichen;
+    for(;i<COLS;i++){
+        video[row*COLS+i]=(unsigned short)' '|(Color<<8);
+    }
+    if(!(row==ROWS-1)){
+        row++;
+    }else{
+        for(int col = 0; col<COLS;col++){
+            video[col]=(unsigned short)0|(Color<<8);
+        }
+        for(int ROW=1;ROW<ROWS;ROW++){
+            for(int col=0;col<COLS;col++){
+                video[(ROW-1)*80+col]=video[ROW*80+col];
+            }
         }
     }
-}
-
-void println(const char* text) {
-    if (row >= ROWS) {
-        for (int i=1; i<ROWS; i++) Zeilen[i-1] = Zeilen[i];
-        Zeilen[ROWS-1] = text;
-    } else {
-        Zeilen[row] = text;
-        row++;
-    }
-    render_Text();
-    printZeichen = 0;
+    printZeichen=0;
 }
 
 void print(const char* text) {
     if (!text) return;
-    for (int i=0; text[i]; i++) {
-        video[row*COLS+printZeichen] = (unsigned short)text[i] | (0x07<<8);
-        printZeichen++;
+    for(int i=printZeichen;i<COLS;i++){
+        video[row*80+i] = (unsigned short)' '|(Color<<8);
     }
-}
-
-char* key_board_input() {
-    static char key[2];
-    unsigned char k;
-
-    do { k = get_key(); } while (k == 0);
-
-    key[0] = (char)k;
-    key[1] = 0;
-
-    while (get_key() != 0);
-
-    return key;
+    for (int i=0; text[i]; i++) {
+        video[row*COLS+printZeichen] = (unsigned short)text[i] | (Color<<8);
+        printZeichen++;
+        if(printZeichen ==COLS){
+            row++;
+            printZeichen=0;
+        }
+    }
 }
 
 char* input(const char* Text) {
@@ -127,22 +116,22 @@ char* input(const char* Text) {
 
     while (1) {
         char* c = key_board_input();
-        if (c[0] == 'E') { 
+        if (c[0] == 1) { 
             break;
-        } else if (c[0] == 'D') {
+        } else if (c[0] == 2) {
             if (pos > 0) {
                 pos--;
                 buf[pos] = 0;
                 if (printZeichen > 0) {
                     printZeichen--;
-                    video[row*COLS+printZeichen] = ' ' | (0x07<<8);
+                    video[row*COLS+printZeichen] = ' ' | (Color<<8);
                 }
             }
         } else {
             if (pos < 127) {
                 buf[pos++] = c[0];
                 buf[pos] = 0;
-                video[row*COLS+printZeichen] = (unsigned short)c[0] | (0x07<<8);
+                video[row*COLS+printZeichen] = (unsigned short)c[0] | (Color<<8);
                 printZeichen++;
             }
         }
@@ -166,7 +155,12 @@ void kernel_main(void) {
         } else if (CommandInhalt(cmd, "shutdown")) {
             shutdown();
         } else if (CommandInhalt(cmd, "help")){
-        	println("\n");
+        	println("help      -- diese hife liste");
+            println("reboot    -- pc neustart");
+            println("shutdown  -- pc herunterfahren");
+            println("cls/clear -- console leren");
+        }else if(!(cmd[0] == 0)){
+            println(combine(cmd, ": befehl nicht gefunden"));
         }
     }
 }

@@ -6,39 +6,31 @@ SECTION .multiboot
     dd 0xE4524FFE 
 
 section .data
-keymap:
-    db 0,0,'1','2','3','4','5','6','7','8','9','0',0,0,'D',0     
-    db 'q','w','e','r','t','z','u','i','o','p','ü','E' ,0,'a','s','d'
-    db 'f','g','h','j','k','l','ö','ä',0,'y','x','c','v','b','n','m'
-    db 0, 0, 0, 0, 0, 0, 'S', 0, 0, 0, 0, 0, 0, 0, 0, 0
-    times 256-64 db 0
 rm_regs:    times 0x34 db 0
 
 SECTION .text
 
+global keymap
+global shift_keymap
+
 global _start
 extern kernel_main
+
 %define KBD_DATA    0x60   
 %define KBD_STATUS  0x64 
 
-global get_key
+global get_scancode
 
 global reboot
 
-get_key:
+get_scancode:
 .wait:
-    in al, KBD_STATUS
+    in al, 0x64           ; KBD_STATUS
     test al, 1
     jz .wait
-    in al, KBD_DATA
-    cmp al, 0x80    
-    jae .not_letter
-    movzx eax, al
-    mov al, [keymap + eax]
-    ret
 
-.not_letter:
-    xor al, al
+    in al, 0x60           ; KBD_DATA
+    movzx eax, al         ; Null-extend AL nach EAX
     ret
 
 _start:
