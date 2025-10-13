@@ -28,6 +28,8 @@ isofiles/boot/grub/grub.cfg: kernel.bin grub.cfg
 Os.iso: isofiles/boot/grub/grub.cfg
 	grub-mkrescue -o Os.iso isofiles
 	qemu-system-x86_64 Os.iso
+
+make run: Os.iso
 	make clean
 	clear
 

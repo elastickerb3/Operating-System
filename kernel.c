@@ -8,11 +8,18 @@ extern char* key_board_input(void);
 #define ROWS 24
 #define COLS 80
 
+#define MaxParameterMenge  25
+
 volatile unsigned short* video = (volatile unsigned short*)0xB8000;
 int row = 0;
 int printZeichen = 0;
 char* Pfad = "/";
-int Color = 0x0F;
+
+int Color = 0x07;
+const char* BackgroundColor="0";
+const char* FontColor="7";
+char Terminal[(ROWS+1)*COLS] = {0};
+
 #define PM1a_CNT 0x604
 #define SLP_TYP  0x2000
 #define SLP_EN   0x2000
@@ -37,14 +44,52 @@ int str_cmp(const char* a, const char* b) {
 
 int CommandInhalt(const char* text, const char* needle) {
     if (!text || !needle) return 0;
-    for (int i = 0; text[i]; i++) {
-        int j = 0;
-        while (needle[j] && text[i+j] && text[i+j] == needle[j]) j++;
-        if (needle[j] == 0) return 1;
+
+    int t = 0;  // Index in text
+    int n = 0;  // Index in needle
+
+    while (text[t] && needle[n]) {
+        if (text[t] == ' ') {
+            t++;  // Leerzeichen überspringen
+            continue;
+        }
+
+        if (text[t] != needle[n]) {
+            return 0;  // Unterschied gefunden
+        }
+
+        t++;
+        n++;
     }
-    return 0;
+
+    // Wenn needle vollständig durchlaufen wurde, dann Match
+    return needle[n] == '\0' ? 1 : 0;
 }
 
+unsigned int CharHex_to_Int(const char* hex) {
+    unsigned int result = 0;
+    int i = 0;
+
+    if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X')) {
+        i = 2;
+    }
+
+    for (; hex[i]; i++) {
+        result <<= 4;
+
+        if (hex[i] >= '0' && hex[i] <= '9') {
+            result += hex[i] - '0';
+        } else if (hex[i] >= 'A' && hex[i] <= 'F') {
+            result += hex[i] - 'A' + 10;
+        } else if (hex[i] >= 'a' && hex[i] <= 'f') {
+            result += hex[i] - 'a' + 10;
+        } else {
+            return 0;
+        }
+    }
+
+    return result;
+}
 char* combine(const char* a, const char* b) {
     static char buf[128];
     int pos = 0;
@@ -59,9 +104,26 @@ char* combine(const char* a, const char* b) {
     return buf;
 }
 
+int color(const char* Font, const char* Background){
+	if(Font[0]!=0){
+		FontColor=Font;
+	}else{
+		return 1;
+	}
+	if(Background!=0){
+		BackgroundColor=Background;
+	}
+	Color = CharHex_to_Int(combine(BackgroundColor,FontColor));
+	for(int x=0;x<COLS*ROWS;x++){
+		video[x]=(unsigned short)Terminal[x]|(Color<<8);
+	}
+	return 0;
+}
+
 void clear() {
     for (int y=0; y<ROWS; y++) {
         for (int x=0; x<COLS; x++) {
+			Terminal[y*COLS+x] = ' ';
             video[y*COLS+x] = (unsigned short)' ' | (Color << 8);
         }
     }
@@ -72,20 +134,24 @@ void clear() {
 void println(const char* text) {
     int i;
     for(i=0;text[i];i++){
+		Terminal[row*COLS+i]=text[i];
         video[row*COLS+i] = (unsigned short)text[i]|(Color<<8);
     }
     i=i+printZeichen;
     for(;i<COLS;i++){
+		Terminal[row*COLS+i]=' ';
         video[row*COLS+i]=(unsigned short)' '|(Color<<8);
     }
     if(!(row==ROWS-1)){
         row++;
     }else{
         for(int col = 0; col<COLS;col++){
+			Terminal[col]=0;
             video[col]=(unsigned short)0|(Color<<8);
         }
         for(int ROW=1;ROW<ROWS;ROW++){
             for(int col=0;col<COLS;col++){
+				Terminal[(ROW-1)*80+col]=Terminal[ROW*80+col];
                 video[(ROW-1)*80+col]=video[ROW*80+col];
             }
         }
@@ -96,9 +162,11 @@ void println(const char* text) {
 void print(const char* text) {
     if (!text) return;
     for(int i=printZeichen;i<COLS;i++){
+		Terminal[row*80+i]=' ';
         video[row*80+i] = (unsigned short)' '|(Color<<8);
     }
     for (int i=0; text[i]; i++) {
+		Terminal[row*80+i]=text[i];
         video[row*COLS+printZeichen] = (unsigned short)text[i] | (Color<<8);
         printZeichen++;
         if(printZeichen ==COLS){
@@ -124,6 +192,7 @@ char* input(const char* Text) {
                 buf[pos] = 0;
                 if (printZeichen > 0) {
                     printZeichen--;
+					Terminal[row*COLS+printZeichen]=' ';
                     video[row*COLS+printZeichen] = ' ' | (Color<<8);
                 }
             }
@@ -131,6 +200,7 @@ char* input(const char* Text) {
             if (pos < 127) {
                 buf[pos++] = c[0];
                 buf[pos] = 0;
+				Terminal[row*COLS+printZeichen]=c[0];
                 video[row*COLS+printZeichen] = (unsigned short)c[0] | (Color<<8);
                 printZeichen++;
             }
@@ -142,13 +212,52 @@ char* input(const char* Text) {
     return buf;
 }
 
+char (*parameter(const char* Text, const char* Standert_Text))[255] {
+    static char parameter_Liste[MaxParameterMenge][255]; 
+	int parameter_index = -1;
+	int parameter_index_index = -1;
+    //An jeder stelle der parameter liste ein null operater einfügen
+    for (int x = 0; x < MaxParameterMenge; x++) {
+        for(int y=0;y<255;y++){
+			parameter_Liste[x][y] = 0;
+		}
+    }
+
+    //Lehrzeichen Menge for dem eignetlichen parameter herausfinden
+    int Ignorirter_Text;
+    for(Ignorirter_Text=0;Text[Ignorirter_Text]==' ';Ignorirter_Text++){}
+
+    //Lenge des Standert textes herausfinden und auf Ignorirter Text drauf addiren
+    for(int i=0;Standert_Text[i];i++){
+        Ignorirter_Text++;
+    }
+    
+	//Mainloop
+	for(int i=Ignorirter_Text;Text[i];i++){
+		//Die weiteren lehrzeichen entfernen und die parameter hinzufüg größe um 1 erhöen
+		if(Text[i]==' '){
+			parameter_index++;
+			parameter_index_index=-1;
+		}
+		for(int a=i;Text[a]==' ';a++){i++;}
+
+		//parameter zur liste hinzufügen
+		parameter_index_index++;
+		parameter_Liste[parameter_index][parameter_index_index] = Text[i];
+	}
+
+    //Liste returnen
+    return parameter_Liste;
+}
+
 void kernel_main(void) {
     println("Willkommen!");
+    println("help fuer hilfe.");
 
     while (1) {
         char* cmd = input(combine(Pfad, " root# "));
 
-        if (CommandInhalt(cmd, "clear") || CommandInhalt(cmd, "cls")) {
+        if(cmd[0]==0){}else if (CommandInhalt(cmd, "clear") || CommandInhalt(cmd, "cls")) {
             clear();
         } else if (CommandInhalt(cmd, "reboot")) {
             reboot();
@@ -158,7 +267,10 @@ void kernel_main(void) {
         	println("help      -- diese hife liste");
             println("reboot    -- pc neustart");
             println("shutdown  -- pc herunterfahren");
-            println("cls/clear -- console leren");
+            println("cls/clear -- console leeren");
+            println("color     -- Farbe von Hintergrund und schrift aendern");
+        }else if(CommandInhalt(cmd, "color")){
+			color(parameter(cmd,"color")[0], parameter(cmd,"color")[1]);
         }else if(!(cmd[0] == 0)){
             println(combine(cmd, ": befehl nicht gefunden"));
         }
