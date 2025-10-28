@@ -2,18 +2,19 @@ typedef unsigned char uint8_t;
 typedef unsigned int  uint32_t;
 typedef unsigned short uint16_t;
 
-extern void reboot(void);
 extern char* key_board_input(void);
+extern int python(); 
 
 #define ROWS 24
 #define COLS 80
 
 #define MaxParameterMenge  25
+#define true 1
 
 volatile unsigned short* video = (volatile unsigned short*)0xB8000;
 int row = 0;
 int printZeichen = 0;
-char* Pfad = "/";
+const char* Pfad = "/";
 
 int Color = 0x07;
 const char* BackgroundColor="0";
@@ -24,119 +25,8 @@ char Terminal[(ROWS+1)*COLS] = {0};
 #define SLP_TYP  0x2000
 #define SLP_EN   0x2000
 
-static inline void outw(uint16_t port, uint16_t val) {
-    __asm__ volatile ("outw %0, %1" : : "a"(val), "Nd"(port));
-}
-
-void shutdown() {
-    outw(PM1a_CNT, SLP_TYP | SLP_EN);
-    for(;;) { __asm__ volatile("hlt"); }
-}
-
-int str_cmp(const char* a, const char* b) {
-    int i = 0;
-    while (a[i] && b[i]) {
-        if (a[i] != b[i]) return 0;
-        i++;
-    }
-    return (a[i] == 0 && b[i] == 0);
-}
-
-int CommandInhalt(const char* text, const char* needle) {
-    if (!text || !needle) return 0;
-
-    int t = 0;  // Index in text
-    int n = 0;  // Index in needle
-
-    while (text[t] && needle[n]) {
-        if (text[t] == ' ') {
-            t++;  // Leerzeichen überspringen
-            continue;
-        }
-
-        if (text[t] != needle[n]) {
-            return 0;  // Unterschied gefunden
-        }
-
-        t++;
-        n++;
-    }
-
-    // Wenn needle vollständig durchlaufen wurde, dann Match
-    return needle[n] == '\0' ? 1 : 0;
-}
-
-unsigned int CharHex_to_Int(const char* hex) {
-    unsigned int result = 0;
-    int i = 0;
-
-    if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X')) {
-        i = 2;
-    }
-
-    for (; hex[i]; i++) {
-        result <<= 4;
-
-        if (hex[i] >= '0' && hex[i] <= '9') {
-            result += hex[i] - '0';
-        } else if (hex[i] >= 'A' && hex[i] <= 'F') {
-            result += hex[i] - 'A' + 10;
-        } else if (hex[i] >= 'a' && hex[i] <= 'f') {
-            result += hex[i] - 'a' + 10;
-        } else {
-            return 0;
-        }
-    }
-
-    return result;
-}
-char* combine(const char* a, const char* b) {
-    static char buf[128];
-    int pos = 0;
-
-    if (a) {
-        for (int i=0; a[i] && pos < 127; i++) buf[pos++] = a[i];
-    }
-    if (b) {
-        for (int i=0; b[i] && pos < 127; i++) buf[pos++] = b[i];
-    }
-    buf[pos] = 0;
-    return buf;
-}
-
-int color(const char* Font, const char* Background){
-	if(Font[0]!=0){
-		FontColor=Font;
-	}else{
-		return 1;
-	}
-	if(Background!=0){
-		BackgroundColor=Background;
-	}
-	Color = CharHex_to_Int(combine(BackgroundColor,FontColor));
-	for(int x=0;x<COLS*ROWS;x++){
-		video[x]=(unsigned short)Terminal[x]|(Color<<8);
-	}
-	return 0;
-}
-
-void clear() {
-    for (int y=0; y<ROWS; y++) {
-        for (int x=0; x<COLS; x++) {
-			Terminal[y*COLS+x] = ' ';
-            video[y*COLS+x] = (unsigned short)' ' | (Color << 8);
-        }
-    }
-    row = 0;
-    printZeichen = 0;
-}
-
-void println(const char* text) {
-    int i;
-    for(i=0;text[i];i++){
-		Terminal[row*COLS+i]=text[i];
-        video[row*COLS+i] = (unsigned short)text[i]|(Color<<8);
-    }
+void newRow(int i){
+    //print kompatiblität
     i=i+printZeichen;
     for(;i<COLS;i++){
 		Terminal[row*COLS+i]=' ';
@@ -159,6 +49,126 @@ void println(const char* text) {
     printZeichen=0;
 }
 
+static inline void outw(uint16_t port, uint16_t val) {
+    __asm__ volatile ("outw %0, %1" : : "a"(val), "Nd"(port));
+}
+
+void shutdown() {
+    outw(PM1a_CNT, SLP_TYP | SLP_EN);
+    for(;;) { __asm__ volatile("hlt"); }
+}
+
+int str_cmp(const char* a, const char* b) {
+    int i = 0;
+    while (a[i] && b[i]) {
+        if (a[i] != b[i]) return 0;
+        i++;
+    }
+    return (a[i] == 0 && b[i] == 0);
+}
+
+int CommandInhalt(const char* text, const char* needle) {
+    if (!text || !needle) return 0;
+
+    int t = 0;
+    int n = 0;  
+
+    while (text[t] && needle[n]) {
+        if (text[t] == ' ') {
+            t++;  
+            continue;
+        }
+
+        if (text[t] != needle[n]) {
+            return 0;
+        }
+
+        t++;
+        n++;
+    }
+
+    return needle[n] == '\0' ? 1 : 0;
+}
+
+unsigned int CharHex_to_Int(const char* hex) {
+    unsigned int result = 0;
+    int i = 0;
+
+    if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X')) {
+        i = 2;
+    }
+
+    for (; hex[i]; i++) {
+        result <<= 4;
+
+        if (hex[i] >= '0' && hex[i] <= '9') {
+            result += hex[i] - '0';
+        } else if (hex[i] >= 'A' && hex[i] <= 'F') {
+            result += hex[i] - 'A' + 10;
+        } else if (hex[i] >= 'a' && hex[i] <= 'f') {
+            result += hex[i] - 'a' + 10;
+        } else {
+            return 7;
+        }
+    }
+
+    return result;
+}
+
+char* combine(const char* a, const char* b) {
+    static char buf[128];
+    int pos = 0;
+
+    for(int i=0;i<128;i++){
+        buf[i]=0;
+    }
+    if (a) {
+        for (int i=0; a[i] && pos < 127; i++) buf[pos++] = a[i];
+    }
+    if (b) {
+        for (int i=0; b[i] && pos < 127; i++) buf[pos++] = b[i];
+    }
+    return buf;
+}
+
+int color(const char* Font, const char* Background){
+	if(Font[0]!=0){
+		FontColor=Font;
+	}else{
+		return true;
+	}
+	if(Background!=0){
+		BackgroundColor=Background;
+	}
+	Color = CharHex_to_Int(combine(BackgroundColor,FontColor));
+	for(int x=0;x<COLS*ROWS;x++){
+		video[x]=(unsigned short)Terminal[x]|(Color<<8);
+	}
+	return 0;
+}
+
+void clear() {
+    for (int y=0; y<ROWS+1; y++) {
+        for (int x=0; x<COLS; x++) {
+			Terminal[y*COLS+x] = ' ';
+            video[y*COLS+x] = (unsigned short)' ' | (Color << 8);
+        }
+    }
+    row = 0;
+    printZeichen = 0;
+}
+
+void println(const char* text) {
+    int i;
+    //Text Anzeige
+    for(i=0;text[i];i++){
+		Terminal[row*COLS+i]=text[i];
+        video[row*COLS+i] = (unsigned short)text[i]|(Color<<8);
+    }
+
+    newRow(i);
+}
+
 void print(const char* text) {
     if (!text) return;
     for(int i=printZeichen;i<COLS;i++){
@@ -170,24 +180,32 @@ void print(const char* text) {
         video[row*COLS+printZeichen] = (unsigned short)text[i] | (Color<<8);
         printZeichen++;
         if(printZeichen ==COLS){
-            row++;
+            newRow(printZeichen);
             printZeichen=0;
         }
     }
 }
 
-char* input(const char* Text) {
+int len(const char* a){
+    int i;
+    for(i=0;a[i];i++){}
+    return i;
+}
+
+char* input(const char* Text,int color) {
     static char buf[128];
     int pos = 0;
-
+    int Color_before=Color;
+    Color=color;
     print(Text);
+    Color=Color_before;
 
     while (1) {
         char* c = key_board_input();
         if (c[0] == 1) { 
             break;
         } else if (c[0] == 2) {
-            if (pos > 0) {
+           if (pos > 0) {
                 pos--;
                 buf[pos] = 0;
                 if (printZeichen > 0) {
@@ -196,7 +214,9 @@ char* input(const char* Text) {
                     video[row*COLS+printZeichen] = ' ' | (Color<<8);
                 }
             }
-        } else {
+        } else if(c[0]==3){
+            print("");
+        }else{
             if (pos < 127) {
                 buf[pos++] = c[0];
                 buf[pos] = 0;
@@ -206,7 +226,6 @@ char* input(const char* Text) {
             }
         }
     }
-
     buf[pos] = 0;
     println("");
     return buf;
@@ -239,7 +258,8 @@ char (*parameter(const char* Text, const char* Standert_Text))[255] {
 			parameter_index++;
 			parameter_index_index=-1;
 		}
-		for(int a=i;Text[a]==' ';a++){i++;}
+
+        for(int a=i;Text[a]==' ';a++){i++;}
 
 		//parameter zur liste hinzufügen
 		parameter_index_index++;
@@ -255,24 +275,59 @@ void kernel_main(void) {
     println("help fuer hilfe.");
 
     while (1) {
-        char* cmd = input(combine(Pfad, " root# "));
+        char* cmd = input(combine(Pfad," root# "),Color);
+        int LehrzeichenTest=1;
+        for(int i=0;cmd[i];i++){
+            if(cmd[i]!=' '){
+                LehrzeichenTest=0;
+            }
+        }
+        if(LehrzeichenTest) continue;
 
         if(cmd[0]==0){}else if (CommandInhalt(cmd, "clear") || CommandInhalt(cmd, "cls")) {
             clear();
         } else if (CommandInhalt(cmd, "reboot")) {
-            reboot();
+            break;
         } else if (CommandInhalt(cmd, "shutdown")) {
             shutdown();
         } else if (CommandInhalt(cmd, "help")){
-        	println("help      -- diese hife liste");
+        	println("help      -- diese hilfe liste");
             println("reboot    -- pc neustart");
             println("shutdown  -- pc herunterfahren");
             println("cls/clear -- console leeren");
             println("color     -- Farbe von Hintergrund und schrift aendern");
         }else if(CommandInhalt(cmd, "color")){
-			color(parameter(cmd,"color")[0], parameter(cmd,"color")[1]);
-        }else if(!(cmd[0] == 0)){
-            println(combine(cmd, ": befehl nicht gefunden"));
+            if(str_cmp(parameter(cmd,"color")[0],"/?")||str_cmp(parameter(cmd, "color")[0],"--help")){
+                println("color [Schriftfarbe in hex] [optional Hintergrund farbe]");
+                println("Fraben:");
+                println("1:dunkelblau, 2:dunkelgruen");
+                println("3:tyrkis, 4:rot, 5:pink");
+                println("6:orange, 7:hellgrau");
+                println("8:dunkelgrau,9:violett");
+                println("a:hellgruen, b:hellblau");
+                println("c:hellrot,d:lila");
+                println("e:gelb, f:weis");
+            }else if(str_cmp(parameter(cmd,"color")[0],parameter(cmd,"color")[1])){
+                println("Die Schrift farbe darf nicht gleich mit der Hintergrund farbe sein!");
+            }else if(CharHex_to_Int(parameter(cmd,"color")[0])+CharHex_to_Int(BackgroundColor)==0){
+                println("Die Schrift farbe darf nicht Null sein!");
+            }else{
+                if(color(parameter(cmd,"color")[0], parameter(cmd,"color")[1])){
+                    println("Ungülige parameter!");
+                }
+            }
+        }else if(CommandInhalt(cmd,"ascii-table")){
+            for(int i=0;i<128;i++){
+                char Char[2];
+                Char[0]=(char)i;
+                Char[1]=0;
+                print(combine(Char,", "));
+            }
+            println("");
+        }else if(CommandInhalt(cmd,"python")){
+            python();
+        }else{
+            println(combine(cmd,": Befehl nicht gefunden."));
         }
     }
 }

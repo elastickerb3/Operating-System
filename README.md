@@ -3,3 +3,4 @@
 Einer shutdown function.<br>
 Einer reboot function.<br>
 Einem scroll Bidschrim<br>
+Einer Farben-änderungs methode<br>
