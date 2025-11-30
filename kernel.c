@@ -149,17 +149,6 @@ int color(const char* Font, const char* Background){
 	return 0;
 }
 
-void clear() {
-    for (int y=0; y<ROWS+1; y++) {
-        for (int x=0; x<COLS; x++) {
-			Terminal[y*COLS+x] = ' ';
-            video[y*COLS+x] = (unsigned short)' ' | (Color << 8);
-        }
-    }
-    row = 0;
-    printZeichen = 0;
-}
-
 void println(const char* text) {
     int i;
     //Text Anzeige
@@ -272,11 +261,36 @@ char (*parameter(const char* Text, const char* Standert_Text))[255] {
     return parameter_Liste;
 }
 
+void PrintMiddle(const char* Text){
+    int Formel=(COLS/2)-(len(Text)/1.5);
+    printZeichen=Formel;
+    print(Text);
+    printZeichen=0;
+    row++;
+}
+
+void ultimate_clear(){
+    for (int y=0; y<ROWS+1; y++) {
+        for (int x=0; x<COLS; x++) {
+			Terminal[y*COLS+x] = ' ';
+            video[y*COLS+x] = (unsigned short)' ' | (Color << 8);
+        }
+    }
+    row = 0;
+    printZeichen = 0;
+} 
+
+void clear() {
+    ultimate_clear();
+    PrintMiddle("Potato Os");
+}
+
 void kernel_main(void) {
     clear();
     Login();
+    ultimate_clear();
 
-    println("Willkommen!");
+    PrintMiddle("Willkommen zu Potato Os!");
     println("help fuer hilfe.");
     while (1) {
         char* cmd = input(combine(Pfad," root# "),Color);
@@ -333,8 +347,5 @@ void kernel_main(void) {
         }else  {
             println(combine(cmd,": Befehl nicht gefunden."));
         }
-    }
-    for(;;) {
-        __asm__ volatile("hlt");
     }
 }
