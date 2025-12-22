@@ -1,6 +1,6 @@
 extern "C" {
-    char* input(const char* Text,int color);
     void println(const char* Text);
+    char* input(const char* Text, int Color, int SeeIt);
     int str_cmp(const char* a, const char* b);
 }
 
@@ -13,7 +13,7 @@ extern "C" int python(){
             }
         }
         for(int i=0;i<999;i++){
-            char* Input = input(">",9);
+            char* Input = input(">",9, 1);
             if(str_cmp(Input,"RUN")){
                 break;
             }else if(str_cmp(Input,"exit")){

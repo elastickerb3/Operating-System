@@ -32,6 +32,11 @@ make run: Os.iso
 	qemu-system-x86_64 Os.iso 
 	make clean
 
+make final: Os.iso
+	sudo dd if=Os.iso of=/dev/sdb bs=4M status=progress conv=fsync
+	make clean
+	sudo reboot
+
 clean:
 	sudo rm -rf *.o kernel.bin isofiles
 	clear

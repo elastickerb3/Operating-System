@@ -1,3 +1,5 @@
+#include "kernel_assets/shutdown.c"
+
 typedef unsigned char uint8_t;
 typedef unsigned int  uint32_t;
 typedef unsigned short uint16_t;
@@ -27,6 +29,68 @@ char Terminal[(ROWS+1)*COLS] = {0};
 #define SLP_TYP  0x2000
 #define SLP_EN   0x2000
 
+int getDigitCount(int Start){
+    int count = 0;
+
+    while (1){
+        if (Start<=0){
+            return count;
+        }
+
+        Start /= 10;
+        count++;
+    }
+}
+
+char* IntToChar(int Int){
+    static char result[100];
+    for(int i=0;result[i];i++){
+        result[i] = 0;
+    }
+    int Stelle = 1;
+    for(int i=0; i<getDigitCount(Int)-1;i++){
+        Stelle *=10;
+    }
+    for(int i=0; i<getDigitCount(Int);i++){
+        int Zahl = (Int / Stelle) % 10;
+        Stelle /= 10;
+
+        switch (Zahl){
+            case 0:
+                result[i] = '0';
+                break;
+            case 1:
+                result[i] = '1';
+                break;
+            case 2:
+                result[i] = '2';
+                break;
+            case 3:
+                result[i] ='3';
+                break;
+            case 4:
+                result[i] = '4';
+                break;
+            case 5:
+                result[i] = '5';
+                break;
+            case 6:
+                result[i] = '6';
+                break;
+            case 7:
+                result[i] = '7';
+                break;
+            case 8:
+                result[i] = '8';
+                break;
+            case 9:
+                result[i] = '9';
+                break;
+        } 
+    }
+    return result;
+}
+
 void newRow(int i){
     //print kompatiblität
     i=i+printZeichen;
@@ -49,15 +113,6 @@ void newRow(int i){
         }
     }
     printZeichen=0;
-}
-
-static inline void outw(uint16_t port, uint16_t val) {
-    __asm__ volatile ("outw %0, %1" : : "a"(val), "Nd"(port));
-}
-
-void shutdown() {
-    outw(PM1a_CNT, SLP_TYP | SLP_EN);
-    for(;;) { __asm__ volatile("hlt"); }
 }
 
 int str_cmp(const char* a, const char* b) {
@@ -177,13 +232,21 @@ void print(const char* text) {
     }
 }
 
+void printInt(int Int){
+    print(IntToChar(Int));
+}
+
+void printIntln(int Int){
+    println(IntToChar(Int));
+}
+
 int len(const char* a){
     int i;
     for(i=0;a[i];i++){}
     return i;
 }
 
-char* input(const char* Text,int color) {
+char* input(const char* Text,int color, int SeeIt) {
     static char buf[128];
     int pos = 0;
     int Color_before=Color;
@@ -208,12 +271,22 @@ char* input(const char* Text,int color) {
         } else if(c[0]==3){
             print("");
         }else{
-            if (pos < 127) {
-                buf[pos++] = c[0];
-                buf[pos] = 0;
-				Terminal[row*COLS+printZeichen]=c[0];
-                video[row*COLS+printZeichen] = (unsigned short)c[0] | (Color<<8);
-                printZeichen++;
+            if(SeeIt){
+                if (pos < 127) {
+                    buf[pos++] = c[0];
+                    buf[pos] = 0;
+				    Terminal[row*COLS+printZeichen]=c[0];
+                    video[row*COLS+printZeichen] = (unsigned short)c[0] | (Color<<8);
+                    printZeichen++;
+                }
+            }else{
+                if (pos < 127) {
+                    buf[pos++] = c[0];
+                    buf[pos] = 0;
+				    Terminal[row*COLS+printZeichen]=c[0];
+                    video[row*COLS+printZeichen] = (unsigned short)'*' | (Color<<8);
+                    printZeichen++;
+                }
             }
         }
     }
@@ -263,7 +336,7 @@ char (*parameter(const char* Text, const char* Standert_Text))[255] {
 
 void PrintMiddle(const char* Text){
     int Formel=(COLS/2)-(len(Text)/1.5);
-    printZeichen=Formel;
+    printZeichen = Formel;
     print(Text);
     printZeichen=0;
     row++;
@@ -293,7 +366,7 @@ void kernel_main(void) {
     PrintMiddle("Willkommen zu Potato Os!");
     println("help fuer hilfe.");
     while (1) {
-        char* cmd = input(combine(Pfad," root# "),Color);
+        char* cmd = input(combine(Pfad," root# "),Color, 1);
         int LehrzeichenTest=1;
         for(int i=0;cmd[i];i++){
             if(cmd[i]!=' '){
@@ -309,11 +382,12 @@ void kernel_main(void) {
         } else if (CommandInhalt(cmd, "shutdown")) {
             shutdown();
         } else if (CommandInhalt(cmd, "help")){
-        	println("help      -- diese hilfe liste");
-            println("reboot    -- pc neustart");
-            println("shutdown  -- pc herunterfahren");
-            println("cls/clear -- console leeren");
-            println("color     -- Farbe von Hintergrund und schrift aendern");
+        	println("help        -- diese hilfe liste");
+            println("reboot      -- pc neustart");
+            println("shutdown    -- pc herunterfahren");
+            println("cls/clear   -- console leeren");
+            println("color       -- Farbe von Hintergrund und schrift aendern");
+            println("ascii-table -- alle zahlen mit dem passendem asicii ergebnis");
         }else if(CommandInhalt(cmd, "color")){
             if(str_cmp(parameter(cmd,"color")[0],"/?")||str_cmp(parameter(cmd, "color")[0],"--help")){
                 println("color [Schriftfarbe in hex] [optional Hintergrund farbe]");
@@ -335,11 +409,17 @@ void kernel_main(void) {
                 }
             }
         }else if(CommandInhalt(cmd,"ascii-table")){
-            for(int i=0;i<128;i++){
+            for(int i=1;i<128;i++){
                 char Char[2];
                 Char[0]=(char)i;
                 Char[1]=0;
-                print(combine(Char,", "));
+                printInt(i);
+                print(":");
+                if(i!=127){
+                    print(combine(Char, ","));
+                }else{
+                    print(Char);
+                }
             }
             println("");
         }else if(CommandInhalt(cmd,"python")){
