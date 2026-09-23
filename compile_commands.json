@@ -1,0 +1,24 @@
+[
+  {
+    "file": "./boot/main.cpp",
+    "arguments": [
+      "/usr/bin/x86_64-w64-mingw32-g++",
+      "-ffreestanding",
+      "-fno-rtti",
+      "-fno-exceptions",
+      "-std=c++20",
+      "-Wall",
+      "-Wextra",
+      "-fshort-wchar",
+      "-isystem",
+      "/usr/include/efi",
+      "-isystem",
+      "/usr/include/efi/x86_64",
+      "./boot/main.cpp",
+      "-o",
+      "BOOTX64.EFI"
+    ],
+    "directory": "/home/elastickerb3/dev/OS",
+    "output": "BOOTX64.EFI"
+  }
+]
